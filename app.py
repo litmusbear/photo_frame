@@ -67,8 +67,11 @@ def main(page: ft.Page):
     image_preview = ft.Image(src="", visible=False, border_radius=10)
     
     # 🛠️ 핵심 수정: alignment 속성을 객체 대신 안전한 문자열 "center"로 대체하여 에러 원천 차단
-    image_container = ft.Container(content=image_preview, height=450, alignment=ft.alignment.Center if hasattr(ft, 'alignment') else "center")
-    
+   image_container = ft.Container(
+    content=image_preview, 
+    height=450, 
+    alignment=ft.Alignment(0, 0)  # 👈 (0, 0)이 바로 정중앙(Center)을 뜻합니다.
+)
     tz_dropdown = ft.Dropdown(
         label="타임존 설정",
         options=[ft.dropdown.Option(tz) for tz in tz_options],
