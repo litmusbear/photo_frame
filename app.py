@@ -194,4 +194,3 @@ if __name__ == "__main__":
         ft.run(target=main, port=port, host="0.0.0.0")
     else:
         ft.app(target=main, port=port, host="0.0.0.0")
-        
