@@ -1,4 +1,4 @@
-Pillow
+flet
+pillow
 timezonefinder
 pytz
-streamlit
