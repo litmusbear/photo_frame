@@ -77,7 +77,7 @@ def get_datetime(exif):
             minutes = int((utc_offset.total_seconds() % 3600) / 60)
             utc_offset_str = f"UTC{'+' if hours >= 0 else ''}{hours:02d}:{abs(minutes):02d}"
 
-    return dt.strftime(f"%Y-%B-%d %H:%M {utc_offset_str}")
+    return dt.strftime(f"%Y-%b-%d %H:%M {utc_offset_str}")
 
 class Picture():
     def __init__(self, image_path):
@@ -87,7 +87,7 @@ class Picture():
         self.image = self.image = ImageOps.exif_transpose(img)
         self.camera = self.exif.get("Model", "Unknown Camera")
         self.iso = self.exif.get("ISOSpeedRatings", "?")
-        self.f_number = self.exif.get("FNumber", "?")
+        self.f_number = float(round(self.exif.get("FNumber", "?"),1))
         self.shutter = get_shutter(self.exif)
         self.datetime = get_datetime(self.exif)
 
