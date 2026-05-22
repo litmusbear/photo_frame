@@ -30,3 +30,10 @@ def date_font(padding):
     except:
         font_date = ImageFont.load_default()
     return font_date
+
+def create_custom_font(custom_size, is_bold=True):
+    target_index = 1 if is_bold else 0
+    try:
+        return ImageFont.truetype(FONT_PATH, custom_size, index=target_index)
+    except:
+        return ImageFont.load_default()
