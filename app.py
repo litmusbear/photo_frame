@@ -187,10 +187,13 @@ def main(page: ft.Page):
         )
     )
 
+# app.py 맨 밑바닥의 구동부를 이 코드로 덮어씌워 줍니다.
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8502))
+    
     # 렌더 배포 서버용 ft.run / ft.app 하위 호환 크로스오버 구동
     if hasattr(ft, 'run'):
-        ft.run(target=main, port=port, host="0.0.0.0")
+        # 💡 target=main이 아니라 첫 번째 인자로 main 함수를 바로 던져줍니다.
+        ft.run(main, port=port, host="0.0.0.0")
     else:
         ft.app(target=main, port=port, host="0.0.0.0")
