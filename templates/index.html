@@ -1,211 +1,242 @@
-import re
-import os
-from datetime import datetime
-from font import *
-from PIL import Image, ImageDraw
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📸 사진 데이터 프레임 생성기</title>
+    <style>
+        body {
+            background-color: #FBF9F6;
+            color: #222222;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0px 8px 24px rgba(149, 157, 165, 0.06);
+            border: 1px solid #E2DFD9;
+        }
+        h1 { margin-top: 0; font-size: 1.8rem; }
+        .info-text { color: #6E6E6E; font-size: 0.95rem; margin-bottom: 25px; }
+        
+        .upload-card {
+            border: 2px dashed #E2DFD9;
+            padding: 20px;
+            border-radius: 12px;
+            background-color: #FAF8F5;
+            margin-bottom: 20px;
+        }
+        
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 6px; font-size: 0.9rem; }
+        select, input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+            background-color: #fff;
+        }
 
-def place_model(canvas, pic, w, h, t, p, l_file, chosen_utc=None, current_path=None, 
-                override_lens="", override_f="", override_focal=""):
-    """
-    override_lens: 사용자가 직접 입력/선택한 올드렌즈 이름
-    override_f: 사용자가 직접 선택한 조리개값 (예: '2.0', '1.4' 등)
-    override_focal: 사용자가 직접 선택한 환산 화각 (예: '50mm', '35mm' 등)
-    """
-    font_obj = set_font(p)
-    font_reg = regular(p)
-    font_dat = date_font(p)
-    size, d_size = font_size(p)
+        .grid-4 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 15px;
+        }
 
-    if w > h:
-        scale_up_factor = 1.30
-        size = int(size * scale_up_factor)
-        d_size = int(d_size * scale_up_factor)
+        button {
+            background-color: #222222;
+            color: #ffffff;
+            border: none;
+            padding: 14px;
+            width: 100%;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #444444; }
 
-    draw = ImageDraw.Draw(canvas)
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+            font-weight: bold;
+            color: #555;
+        }
 
-    # 1. 카메라 이름
-    text_camera = pic.get_camera()
+        #result-section {
+            margin-top: 30px;
+            display: none;
+            text-align: center;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        #result-img {
+            max-width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
 
-    # 2. 조리개(f)값 처리 (수동 입력이 있으면 오버라이드, 없으면 EXIF 정보 사용)
-    if override_f and override_f != "EXIF 유지":
-        f_val_str = f"f/{override_f.replace('f/', '')}"
-    else:
-        f_val = pic.get_f_number()
-        f_val_str = f"f/{f_val}" if (f_val and f_val != "?") else "f/?"
+<div class="container">
+    <h1>📸 사진 데이터 프레임 생성기</h1>
+    <p class="info-text">디지털 사진에 카메라 기종, 렌즈 정보, 촬영 정보(EXIF), 그리고 감성적인 즉석 인화 카메라 스타일 테두리를 입혀줍니다.</p>
 
-    text_info = f"{f_val_str}  {pic.get_shutter()}  ISO{pic.get_iso()}"
+    <form id="upload-form">
+        <div class="upload-card">
+            <label>📁 사진 파일 선택 (JPG, RAW 등)</label>
+            <input type="file" id="file-input" accept="image/*,.jpg,.jpeg,.png,.arw,.cr2,.cr3,.nef,.dng,.orf,.rw2" required>
+        </div>
 
-    # 3. 렌즈 및 화각(focal length) 처리
-    # (3-1) 렌즈 이름 결정
-    if override_lens and override_lens not in ["EXIF 정보 사용", "사용자 지정 입력"]:
-        text_lens = override_lens
-    else:
-        text_lens = pic.get_lens() if hasattr(pic, "get_lens") else ""
+        <details style="margin-bottom: 20px; background: #fdfdfd; border: 1px solid #eee; border-radius: 8px; padding: 10px;">
+            <summary style="font-weight: bold; cursor: pointer; padding: 5px;">⚙️ 촬영 및 렌즈/화각 정보 수동 입력 (선택사항)</summary>
+            <div class="grid-4" style="margin-top: 15px;">
+                <div class="form-group">
+                    <label>🏷️ 브랜드</label>
+                    <select id="brand-select">
+                        {% for b in brands %}
+                        <option value="{{ b }}">{{ b }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>🎞️ 렌즈 선택</label>
+                    <select id="lens-select"></select>
+                    <input type="text" id="custom-lens" placeholder="예: Jupiter-8 50mm f/2.0" style="display:none; margin-top:5px;">
+                </div>
+                <div class="form-group">
+                    <label>📐 화각 선택</label>
+                    <select id="focal-select">
+                        {% for f in focal_lengths %}
+                        <option value="{{ f }}">{{ f }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="text" id="custom-focal" placeholder="예: 40mm" style="display:none; margin-top:5px;">
+                </div>
+                <div class="form-group">
+                    <label>🔘 조리개 (f/)</label>
+                    <select id="f-select">
+                        {% for fn in f_numbers %}
+                        <option value="{{ fn }}">{{ fn }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </details>
 
-    if text_lens:
-        text_lens = text_lens.replace("\x00", "").strip()
-        text_lens = re.sub(r'[\x00-\x1F\x7F-\x9F]', '', text_lens)
+        <div class="form-group">
+            <label>🌍 적용할 타임존 (GPS 정보 없을 시 사용)</label>
+            <select id="tz-select">
+                {% for tz in timezones %}
+                <option value="{{ tz }}" {% if 'UTC+09:00' in tz %}selected{% endif %}>{{ tz }}</option>
+                {% endfor %}
+            </select>
+        </div>
 
-    if not text_lens:
-        text_lens = "Lens Unspecified"
+        <button type="submit">✨ 프레임 생성하기</button>
+    </form>
 
-    # (3-2) 화각(focal length) 결정 및 결합
-    if override_focal and override_focal not in ["EXIF 유지", "직접 입력"]:
-        focal_str = override_focal if override_focal.endswith("mm") else f"{override_focal}mm"
-    else:
-        exif_focal = pic.get_focal_length() if hasattr(pic, "get_focal_length") else None
-        focal_str = exif_focal if exif_focal else ""
+    <div class="loading" id="loading">⏳ 고화질 변환 중입니다... (RAW 변환 시 수 초가 걸릴 수 있습니다)</div>
 
-    # 렌즈 이름 뒤에 화각이 기재되어 있지 않은 경우에만 @화각 형태로 결합
-    if focal_str and "@" not in text_lens and focal_str not in text_lens:
-        text_lens = f"{text_lens} @{focal_str}".strip()
+    <div id="result-section">
+        <h3>🖼️ 생성 결과물</h3>
+        <img id="result-img" src="" alt="변환 이미지">
+    </div>
+</div>
 
-    utc_offset_str = chosen_utc if chosen_utc else "UTC+09:00"
-    text_date = ""
-    date_str = ""
-    has_valid_gps = False
+<script>
+    const lensesByBrand = {{ lenses_by_brand | tojson }};
+    const brandSelect = document.getElementById('brand-select');
+    const lensSelect = document.getElementById('lens-select');
+    const customLens = document.getElementById('custom-lens');
+    const focalSelect = document.getElementById('focal-select');
+    const customFocal = document.getElementById('custom-focal');
 
-    try:
-        with Image.open(current_path) as img_exif:
-            exif_data = img_exif._getexif()
-        if exif_data:
-            from PIL.ExifTags import TAGS
-            readable_exif = {TAGS.get(tag, tag): val for tag, val in exif_data.items()}
-            date_str = readable_exif.get("DateTimeOriginal", "")
-            gps_info = readable_exif.get("GPSInfo", {})
-            coords = None
-            if gps_info and 2 in gps_info and 4 in gps_info:
-                try:
-                    def to_degrees(value):
-                        return float(value[0]) + (float(value[1]) / 60.0) + (float(value[2]) / 3600.0)
+    function updateLenses() {
+        const brand = brandSelect.value;
+        const lenses = lensesByBrand[brand] || ["EXIF 정보 사용"];
+        lensSelect.innerHTML = '';
+        lenses.forEach(l => {
+            const opt = document.createElement('option');
+            opt.value = l;
+            opt.textContent = l;
+            lensSelect.appendChild(opt);
+        });
+        customLens.style.display = (lensSelect.value === '사용자 지정 입력') ? 'block' : 'none';
+    }
 
-                    lat = to_degrees(gps_info[2])
-                    if readable_exif.get("GPSLatitudeRef", "N") == "S": lat = -lat
-                    lon = to_degrees(gps_info[4])
-                    if readable_exif.get("GPSLongitudeRef", "E") == "W": lon = -lon
-                    if abs(lat) > 0.001 and abs(lon) > 0.001:
-                        coords = (lat, lon)
-                except:
-                    coords = None
+    brandSelect.addEventListener('change', updateLenses);
+    lensSelect.addEventListener('change', () => {
+        customLens.style.display = (lensSelect.value === '사용자 지정 입력') ? 'block' : 'none';
+    });
+    focalSelect.addEventListener('change', () => {
+        customFocal.style.display = (focalSelect.value === '직접 입력') ? 'block' : 'none';
+    });
 
-            if coords:
-                try:
-                    from timezonefinder import TimezoneFinder
-                    import pytz
-                    tf = TimezoneFinder()
-                    tz_name = tf.timezone_at(lat=coords[0], lng=coords[1])
-                    if tz_name:
-                        timezone = pytz.timezone(tz_name)
-                        dt_obj = datetime.strptime(date_str, "%Y:%m:%d %H:%M:%S")
-                        aware_dt = timezone.localize(dt_obj)
-                        utc_offset = aware_dt.utcoffset()
-                        hours = int(utc_offset.total_seconds() / 3600)
-                        minutes = int((utc_offset.total_seconds() % 3600) / 60)
-                        utc_offset_str = f"UTC{'+' if hours >= 0 else ''}{hours:02d}:{abs(minutes):02d}"
-                        has_valid_gps = True
-                except:
-                    pass
-    except:
-        pass
+    updateLenses();
 
-    if has_valid_gps and date_str:
-        try:
-            dt = datetime.strptime(date_str, "%Y:%m:%d %H:%M:%S")
-            text_date = dt.strftime(f"%Y-%b-%d %H:%M {utc_offset_str}")
-        except:
-            pass
+    document.getElementById('upload-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fileInput = document.getElementById('file-input');
+        if (!fileInput.files[0]) return;
 
-    if not text_date:
-        if date_str:
-            try:
-                dt = datetime.strptime(date_str, "%Y:%m:%d %H:%M:%S")
-                text_date = dt.strftime(f"%Y-%b-%d %H:%M {chosen_utc}")
-            except:
-                date_str = ""
-        if not date_str:
-            try:
-                file_mtime = os.path.getmtime(current_path)
-                dt = datetime.fromtimestamp(file_mtime)
-                text_date = dt.strftime(f"%Y-%b-%d %H:%M {chosen_utc}")
-            except:
-                text_date = datetime.now().strftime(f"%Y-%b-%d %H:%M {chosen_utc}")
+        const formData = new FormData();
+        formData.append('file', fileInput.files[0]);
 
-    line_spacing = int(size * 0.2)
-    if w > h:
-        gap = int(p * 0.12)
-        start_y = h + t + gap
-    else:
-        start_y = h + (p - (size + line_spacing + d_size)) // 2
+        let lensVal = lensSelect.value === '사용자 지정 입력' ? customLens.value : (lensSelect.value !== 'EXIF 정보 사용' ? lensSelect.value : '');
+        let focalVal = focalSelect.value === '직접 입력' ? customFocal.value : (focalSelect.value !== 'EXIF 유지' ? focalSelect.value : '');
+        let fVal = document.getElementById('f-select').value !== 'EXIF 유지' ? document.getElementById('f-select').value : '';
 
-    visual_center_y = int(start_y + (size * 0.62))
+        formData.append('override_lens', lensVal);
+        formData.append('override_focal', focalVal);
+        formData.append('override_f', fVal);
+        formData.append('chosen_utc', document.getElementById('tz-select').value);
 
-    spacing = int(w * 0.01)
-    current_x = t
-    lens_left_x = t
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('result-section').style.display = 'none';
 
-    try:
-        if l_file and os.path.exists(l_file):
-            logo_img = Image.open(l_file).convert("RGBA")
-            logo_h = int(size * 0.95)
-            logo_w = int(logo_img.width * (logo_h / logo_img.height))
-            logo_img = logo_img.resize((logo_w, logo_h), Image.Resampling.LANCZOS)
+        try {
+            const res = await fetch('/process', { method: 'POST', body: formData });
+            if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || '변환 실패');
+            }
 
-            logo_x = int(current_x)
-            logo_y = int(visual_center_y - (logo_h // 2))
-            canvas.paste(logo_img, (logo_x, logo_y), logo_img)
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
 
-            lens_left_x = logo_x
-            current_x = logo_x + logo_w + int(spacing * 0.7)
-    except:
-        pass
+            document.getElementById('result-img').src = url;
+            document.getElementById('result-section').style.display = 'block';
 
-    info_x = t + w
-    info_width = draw.textlength(text_info, font=font_reg)
-    max_available_x = info_x - info_width - (spacing * 2)
-    max_text_width = max_available_x - current_x
-    current_text_width = draw.textlength(text_camera, font=font_obj)
+            // 이미지 클릭 또는 자동 다운로드 안내
+            const a = document.createElement('a');
+            a.href = url;
+            const contentDisposition = res.headers.get('Content-Disposition');
+            let fileName = 'result.jpg';
+            if (contentDisposition && contentDisposition.includes('filename=')) {
+                fileName = contentDisposition.split('filename=')[1].replace(/"/g, '');
+            }
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
 
-    camera_stroke_width = 0
-
-    if current_text_width > max_text_width:
-        scale_factor = max(max_text_width / current_text_width, 0.4)
-        new_size = int(size * scale_factor)
-        font_obj = create_custom_font(new_size, is_bold=True)
-        if scale_factor < 0.8:
-            camera_stroke_width = max(1, int(new_size * 0.03))
-    elif w > h:
-        font_obj = create_custom_font(size, is_bold=True)
-        font_reg = create_custom_font(int(size * 0.85), is_bold=False)
-        font_dat = create_custom_font(int(size * 0.65), is_bold=False)
-
-    # 카메라 이름 그리기
-    draw.text(
-        (int(current_x), int(start_y)),
-        text_camera,
-        fill=(0, 0, 0),
-        font=font_obj,
-        anchor="la",
-        stroke_width=camera_stroke_width,
-        stroke_fill=(0, 0, 0)
-    )
-
-    # 렌즈 정보(+화각) 그리기
-    if text_lens:
-        lens_y = int(start_y + size + int(size * 0.15))
-        draw.text(
-            (int(lens_left_x), lens_y),
-            text_lens,
-            fill=(140, 140, 140),
-            font=font_dat,
-            anchor="la"
-        )
-
-    # 조리개/셔터/ISO 정보 그리기
-    draw.text((int(info_x), int(start_y)), text_info, fill=(50, 50, 50), font=font_reg, anchor="ra")
-
-    # 촬영 날짜/시간 그리기
-    if text_date:
-        date_y = int(start_y + size + line_spacing)
-        draw.text((int(info_x), date_y), text_date, fill=(140, 140, 140), font=font_dat, anchor="ra")
-
-    return canvas
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            document.getElementById('loading').style.display = 'none';
+        }
+    });
+</script>
+</body>
+</html>
