@@ -1,0 +1,8 @@
+Flask
+gunicorn
+Pillow
+piexif
+pytz
+rawpy
+timezonefinder
+exifread
